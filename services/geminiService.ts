@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { Deal, Client } from "../types";
+import { Deal, Client, Task, Activity } from "../types";
 
 // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -21,7 +21,7 @@ export const generateEmailDraft = async (
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-flash-preview', // Flash for fast, simple text generation
       contents: prompt,
     });
 
@@ -29,6 +29,41 @@ export const generateEmailDraft = async (
   } catch (error) {
     console.error("Gemini API Error:", error);
     return "Sorry, I couldn't generate the email at this time. Please try again later.";
+  }
+};
+
+/**
+ * Generates a daily briefing using Gemini 3.0 Pro with Thinking Mode.
+ */
+export const generateDailyBriefing = async (deals: Deal[], tasks: Task[], activities: Activity[]): Promise<string> => {
+  try {
+    const prompt = `
+      Act as an Executive Sales Assistant providing a daily morning briefing.
+      
+      Deals: ${JSON.stringify(deals)}
+      Tasks: ${JSON.stringify(tasks)}
+      Recent Activities: ${JSON.stringify(activities)}
+      
+      Create a concise, high-impact daily briefing.
+      1. Highlight the top 3 priorities for today based on deadlines and deal value.
+      2. Summarize recent key activity (last 24 hours).
+      3. Provide a motivational "Thought for the Day" related to sales.
+      
+      Format as HTML with <h3>, <ul>, <li>, <p>, <strong>.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: {
+        thinkingConfig: { thinkingBudget: 32768 } // Enable Thinking Mode
+      }
+    });
+
+    return response.text || "<h3>Briefing Unavailable</h3><p>Could not generate the daily briefing.</p>";
+  } catch (error) {
+    console.error("Gemini Daily Briefing Error:", error);
+    return "<h3>Briefing Unavailable</h3><p>Could not generate the daily briefing at this moment.</p>";
   }
 };
 
@@ -107,5 +142,108 @@ export const researchEntity = async (query: string): Promise<{text: string, sour
   } catch (error) {
       console.error("Gemini Research Error", error);
       return { text: "Search unavailable.", sources: [] };
+  }
+};
+
+/**
+ * Generates a strategic account plan using Gemini 3.0 Pro with Thinking Mode.
+ */
+export const generateAccountStrategy = async (clientName: string, recentHistory: string): Promise<string> => {
+    try {
+        const prompt = `
+          Act as a Strategic Account Manager.
+          Client: ${clientName}
+          Recent History: ${recentHistory}
+          
+          Develop a brief strategic growth plan.
+          1. Identify 2 potential upsell or expansion opportunities based on typical agency services.
+          2. Suggest a specific "value-add" idea we can pitch to them next week.
+          3. Identify one potential risk in the relationship.
+          
+          Format as HTML with <h4> for section headers and <ul> for lists. Keep it professional and punchy.
+        `;
+    
+        const response = await ai.models.generateContent({
+          model: 'gemini-3-pro-preview',
+          contents: prompt,
+          config: {
+            thinkingConfig: { thinkingBudget: 32768 } // High budget for strategic reasoning
+          }
+        });
+    
+        return response.text || "Unable to generate strategy.";
+      } catch (error) {
+        console.error("Gemini Strategy Error:", error);
+        return "<p>Strategy generation unavailable at this time.</p>";
+      }
+};
+
+/**
+ * Analyzes a specific deal using Gemini 3.0 Pro Thinking Mode.
+ */
+export const analyzeDealStrategies = async (dealTitle: string, dealStage: string, dealValue: number, clientName: string, history: string): Promise<string> => {
+    try {
+      const prompt = `
+        Act as a Deal Desk Analyst.
+        Deal: ${dealTitle} ($${dealValue}) with ${clientName}.
+        Current Stage: ${dealStage}.
+        Activity History: ${history}
+  
+        Perform a deep analysis using your reasoning capabilities:
+        1. Calculate a "Realism Score" (0-100%) based on the stage and history. Explain why.
+        2. Identify the single biggest "Deal Killer" risk.
+        3. Propose a "Closing Strategy" with 3 specific steps (e.g. "Send a whitepaper", "Offer a limited discount").
+  
+        Format as HTML with <h3>, <h4>, <p>, <ul>, <li>. Use <strong> for emphasis.
+      `;
+  
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: prompt,
+        config: {
+          thinkingConfig: { thinkingBudget: 32768 } // Thinking Mode for deep analysis
+        }
+      });
+  
+      return response.text || "Unable to generate deal analysis.";
+    } catch (error) {
+      console.error("Gemini Deal Analysis Error:", error);
+      return "<p>Deal analysis unavailable at this time.</p>";
+    }
+};
+
+/**
+ * Suggests the single next best action for a deal using Thinking Mode.
+ */
+export const suggestNextAction = async (clientName: string, dealStage: string, lastActivity: string): Promise<{ title: string, type: 'email' | 'call' | 'task', description: string }> => {
+  try {
+    const prompt = `
+      Context: Deal with ${clientName} is in ${dealStage}. Last activity: ${lastActivity}.
+      
+      Determine the single most effective next step to move this deal forward.
+      Return valid JSON only. Format:
+      {
+        "title": "Action Title (e.g. Send Follow-up)",
+        "type": "email" | "call" | "task",
+        "description": "One sentence explanation of why and what to do."
+      }
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 32768 } // Deep thinking to find the *best* action
+      }
+    });
+
+    const text = response.text || "{}";
+    // Sanitize in case markdown blocks are included (though mimeType usually handles this)
+    const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(jsonStr);
+  } catch (error) {
+    console.error("Gemini Next Action Error:", error);
+    return { title: "Review Deal", type: "task", description: "Review deal details and determine next steps manually." };
   }
 };

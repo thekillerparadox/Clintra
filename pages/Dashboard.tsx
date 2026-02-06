@@ -1,342 +1,586 @@
-import React, { useMemo } from 'react';
-import { MOCK_DEALS, MOCK_ACTIVITIES, MOCK_TASKS } from '../constants';
-import { DealStage, Deal } from '../types';
+import React, { useState } from 'react';
+import { MOCK_DEALS, MOCK_TASKS, MOCK_ACTIVITIES } from '../constants';
+import { useNavigate } from 'react-router-dom';
 import { 
-  TrendingUp, TrendingDown, AlertTriangle, ArrowRight, DollarSign, 
-  Activity, Calendar, Clock, CheckCircle2, MoreHorizontal, Mail, Phone,
-  Briefcase, ArrowUpRight, ChevronRight, Zap
+    AlertTriangle, TrendingUp, ArrowUpRight, DollarSign, Calendar, 
+    CheckSquare, Clock, ArrowRight, BrainCircuit, Loader2, Target, 
+    Users, Briefcase, ChevronRight, MoreHorizontal, Phone, Mail, PlusCircle, Filter,
+    MessageSquare, Activity
 } from 'lucide-react';
+import { 
+    ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, 
+    BarChart, Bar, Cell, PieChart, Pie, YAxis, CartesianGrid, Legend 
+} from 'recharts';
+import { generateDailyBriefing } from '../services/geminiService';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Badge from '../components/Badge';
-import { useNavigate } from 'react-router-dom';
 
-// --- Components ---
+// --- Enhanced Mock Data ---
+const FORECAST_DATA = [
+    { name: 'Week 1', actual: 12000, goal: 15000, projected: 14000 },
+    { name: 'Week 2', actual: 28000, goal: 30000, projected: 29000 },
+    { name: 'Week 3', actual: 45000, goal: 45000, projected: 48000 },
+    { name: 'Week 4', actual: 52000, goal: 60000, projected: 65000 },
+];
 
-const KPICard: React.FC<{
-  label: string;
-  value: string;
-  subValue: string;
-  trend: 'up' | 'down' | 'neutral';
-  trendValue: string;
-  icon: React.ElementType;
-}> = ({ label, value, subValue, trend, trendValue, icon: Icon }) => (
-  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-[0_2px_4px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_16px_rgba(0,0,0,0.04)] hover:border-primary-200 transition-all duration-200 group cursor-pointer relative overflow-hidden">
-    <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity transform scale-150 translate-x-2 -translate-y-2">
-      <Icon className="w-24 h-24 text-slate-900" />
-    </div>
-    
-    <div className="relative z-10">
-      <div className="flex justify-between items-start mb-4">
-        <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 group-hover:bg-white group-hover:border-slate-200 transition-colors">
-          <Icon className="w-5 h-5 text-slate-500 group-hover:text-primary-600 transition-colors" />
-        </div>
-        <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
-          trend === 'up' ? 'bg-emerald-50 text-emerald-700' : 
-          trend === 'down' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-600'
-        }`}>
-          {trend === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-          {trendValue}
-        </div>
-      </div>
-      
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{label}</h3>
-        <div className="text-3xl font-bold text-slate-900 tracking-tight">{value}</div>
-        <p className="text-xs font-medium text-slate-400 group-hover:text-primary-600 transition-colors">
-          {subValue}
-        </p>
-      </div>
-    </div>
-  </div>
-);
+const FUNNEL_DATA = [
+    { name: 'Lead', value: 20 },
+    { name: 'Qualify', value: 15 },
+    { name: 'Proposal', value: 12 },
+    { name: 'Negotiate', value: 8 },
+    { name: 'Won', value: 5 },
+];
 
-const PipelineBar: React.FC<{ stage: string; count: number; value: number; totalValue: number; stalledCount: number }> = ({ 
-  stage, count, value, totalValue, stalledCount 
-}) => {
-  const percentage = totalValue > 0 ? (value / totalValue) * 100 : 0;
-  
-  return (
-    <div className="group flex items-center gap-4 py-3 hover:bg-slate-50 rounded-lg px-2 transition-colors cursor-pointer">
-      <div className="w-24 shrink-0">
-        <div className="text-sm font-bold text-slate-700 truncate">{stage}</div>
-        <div className="text-[10px] text-slate-400 font-medium">{count} deals</div>
-      </div>
-      
-      <div className="flex-1">
-        <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-primary-500 rounded-full transition-all duration-1000 ease-out relative group-hover:bg-primary-600"
-            style={{ width: `${Math.max(percentage, 2)}%` }} // Min width for visibility
-          ></div>
-        </div>
-      </div>
+const SOURCE_DATA = [
+    { name: 'Referral', value: 35, color: '#8b5cf6' },
+    { name: 'Inbound', value: 25, color: '#10b981' },
+    { name: 'Outbound', value: 20, color: '#f59e0b' },
+    { name: 'Events', value: 10, color: '#3b82f6' },
+    { name: 'Ads', value: 10, color: '#f43f5e' },
+];
 
-      <div className="w-24 shrink-0 text-right">
-        <div className="text-sm font-bold text-slate-900">${value.toLocaleString()}</div>
-        {stalledCount > 0 ? (
-          <div className="text-[10px] font-bold text-amber-600 flex items-center justify-end gap-1">
-            <AlertTriangle className="w-3 h-3" /> {stalledCount} stalled
-          </div>
-        ) : (
-          <div className="text-[10px] text-slate-400">On track</div>
-        )}
-      </div>
-      
-      <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-    </div>
-  );
-};
+const ACTIVITY_VOLUME_DATA = [
+    { name: 'Mon', calls: 12, emails: 24, meetings: 4 },
+    { name: 'Tue', calls: 18, emails: 30, meetings: 6 },
+    { name: 'Wed', calls: 10, emails: 20, meetings: 3 },
+    { name: 'Thu', calls: 15, emails: 28, meetings: 5 },
+    { name: 'Fri', calls: 8, emails: 15, meetings: 2 },
+];
 
-// --- Main Dashboard ---
+const FUNNEL_COLORS = ['#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b', '#10b981'];
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-
-  // --- Data Calculations ---
-  const activeDeals = useMemo(() => MOCK_DEALS.filter(d => d.stage !== DealStage.WON && d.stage !== DealStage.LOST), []);
-  const totalValue = useMemo(() => activeDeals.reduce((sum, d) => sum + d.value, 0), [activeDeals]);
+  const [briefingHtml, setBriefingHtml] = useState<string | null>(null);
+  const [isThinking, setIsThinking] = useState(false);
+  const [activeTab, setActiveTab] = useState<'tasks' | 'meetings'>('tasks');
+  const [quickTask, setQuickTask] = useState('');
   
-  // Weighted Forecast (Value * Probability)
-  const weightedForecast = useMemo(() => 
-    activeDeals.reduce((sum, d) => sum + (d.value * (d.probability / 100)), 0), 
-  [activeDeals]);
+  // Deals Filter State
+  const [dealFilter, setDealFilter] = useState<'all' | 'closing' | 'risk'>('all');
 
-  // Stage Breakdown
-  const dealsByStage = useMemo(() => {
-    const stages = Object.values(DealStage).filter(s => s !== DealStage.LOST);
-    return stages.map(stage => {
-      const stageDeals = MOCK_DEALS.filter(d => d.stage === stage);
-      const stageValue = stageDeals.reduce((sum, d) => sum + d.value, 0);
-      const stalledCount = stageDeals.filter(d => {
-        const days = Math.floor((Date.now() - new Date(d.lastActivityDate).getTime()) / (1000 * 3600 * 24));
-        return days > 7;
-      }).length;
-      return { stage, count: stageDeals.length, value: stageValue, stalledCount };
-    });
-  }, []);
+  const handleGenerateBriefing = async () => {
+      if (briefingHtml) return;
+      setIsThinking(true);
+      const briefing = await generateDailyBriefing(MOCK_DEALS, MOCK_TASKS, MOCK_ACTIVITIES);
+      setBriefingHtml(briefing);
+      setIsThinking(false);
+  };
 
-  // Risks (Stalled > 7 days OR High Value & Low Prob)
-  const risks = useMemo(() => {
-    return activeDeals.filter(d => {
-      const daysInactive = Math.floor((Date.now() - new Date(d.lastActivityDate).getTime()) / (1000 * 3600 * 24));
-      return daysInactive > 7 || (d.value > 10000 && d.probability < 40);
-    }).map(d => ({
-      ...d,
-      daysInactive: Math.floor((Date.now() - new Date(d.lastActivityDate).getTime()) / (1000 * 3600 * 24)),
-      type: d.value > 10000 && d.probability < 40 ? 'Risk' : 'Stalled'
-    })).slice(0, 4); // Limit to 4
-  }, [activeDeals]);
+  const totalRevenue = MOCK_DEALS.reduce((acc, d) => acc + d.value, 0);
+  const goal = 150000;
+  const progress = (totalRevenue / goal) * 100;
 
-  // Momentum (Recent Activity)
-  const momentum = useMemo(() => {
-    return MOCK_ACTIVITIES.slice(0, 5).map(a => {
-        // Mock finding deal/client name for context
-        return { ...a, entityName: 'Project Alpha' }; 
-    });
-  }, []);
+  // Filter Logic for Deals Table
+  const getFilteredDeals = () => {
+      const now = new Date();
+      switch(dealFilter) {
+          case 'closing':
+              return MOCK_DEALS.filter(d => {
+                  const closeDate = new Date(d.expectedCloseDate);
+                  const diffTime = Math.abs(closeDate.getTime() - now.getTime());
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                  return diffDays <= 30 && d.stage !== 'Won' && d.stage !== 'Lost';
+              });
+          case 'risk':
+              return MOCK_DEALS.filter(d => d.probability < 40 && d.stage !== 'Lost');
+          default:
+              return MOCK_DEALS;
+      }
+  };
+
+  const displayedDeals = getFilteredDeals().slice(0, 5);
 
   return (
-    <div className="max-w-[1400px] mx-auto pb-12 space-y-8 animate-enter">
+    <div className="space-y-6 animate-enter pb-10">
       
-      {/* Header */}
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">
-             Here is your business performance for <span className="text-slate-900">{new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</span>.
-          </p>
-        </div>
-        <div className="flex gap-3">
-             <Button variant="secondary" icon={Briefcase} onClick={() => navigate('/pipeline')}>View Pipeline</Button>
-        </div>
+      {/* --- HEADER SECTION --- */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Good morning, John</h1>
+              <p className="text-slate-500 text-sm mt-1">Here's what's happening in your pipeline today.</p>
+          </div>
+          <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={handleGenerateBriefing} 
+                disabled={isThinking}
+                className={`bg-white transition-all ${briefingHtml ? 'hidden' : ''}`}
+              >
+                  {isThinking ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <BrainCircuit className="h-4 w-4 mr-2" />}
+                  {isThinking ? 'Thinking...' : 'Generate Daily Briefing'}
+              </Button>
+              <Button icon={ArrowRight} onClick={() => navigate('/pipeline')}>Go to Pipeline</Button>
+          </div>
       </div>
 
-      {/* 1. Business Health KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <KPICard 
-          label="Total Pipeline" 
-          value={`$${totalValue.toLocaleString()}`} 
-          subValue={`${activeDeals.length} active deals`}
-          trend="up" 
-          trendValue="12%"
-          icon={DollarSign}
-        />
-        <KPICard 
-          label="Weighted Forecast" 
-          value={`$${Math.round(weightedForecast).toLocaleString()}`} 
-          subValue="Risk-adjusted revenue"
-          trend="up" 
-          trendValue="5%"
-          icon={Activity}
-        />
-        <KPICard 
-          label="Est. Closing Soon" 
-          value="$18,500" 
-          subValue="3 deals closing this month"
-          trend="neutral" 
-          trendValue="0%"
-          icon={Calendar}
-        />
+      {/* --- AI BRIEFING PANEL (Conditional) --- */}
+      {(isThinking || briefingHtml) && (
+          <div className="bg-gradient-to-r from-fuchsia-50 to-white border border-fuchsia-100 rounded-xl p-6 shadow-sm animate-enter">
+              <div className="flex items-center gap-3 mb-4">
+                  <div className="h-8 w-8 bg-fuchsia-100 rounded-lg flex items-center justify-center text-fuchsia-600">
+                      <BrainCircuit className="h-5 w-5" />
+                  </div>
+                  <div>
+                      <h3 className="font-bold text-slate-900">Executive Daily Briefing</h3>
+                      <p className="text-xs text-slate-500">Powered by Gemini 3.0 Thinking Mode</p>
+                  </div>
+              </div>
+              
+              {isThinking ? (
+                  <div className="space-y-3 max-w-2xl">
+                      <div className="h-4 bg-fuchsia-100/50 rounded w-3/4 animate-pulse"></div>
+                      <div className="h-4 bg-fuchsia-100/50 rounded w-full animate-pulse"></div>
+                      <div className="h-4 bg-fuchsia-100/50 rounded w-5/6 animate-pulse"></div>
+                  </div>
+              ) : (
+                  <div className="prose prose-sm prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: briefingHtml || '' }} />
+              )}
+          </div>
+      )}
+
+      {/* --- KPI ROW (High Density) --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KPICard 
+             title="Forecast vs Quota"
+             value={`$${(totalRevenue/1000).toFixed(0)}k`}
+             subValue={`of $${(goal/1000).toFixed(0)}k Goal`}
+             icon={Target}
+             color="text-primary-600"
+             trend="+12%"
+             trendUp={true}
+          >
+              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-3">
+                  <div className="bg-primary-600 h-1.5 rounded-full" style={{ width: `${Math.min(progress, 100)}%` }}></div>
+              </div>
+          </KPICard>
+
+          <KPICard 
+             title="Sales Velocity"
+             value="18 Days"
+             subValue="Avg time to close"
+             icon={Clock}
+             color="text-blue-600"
+             trend="-2 days"
+             trendUp={true} // Lower is better for velocity usually, but green implies good
+          >
+               <div className="h-1.5 mt-3 flex gap-1">
+                   <div className="h-full w-1/3 bg-blue-200 rounded-full"></div>
+                   <div className="h-full w-1/3 bg-blue-400 rounded-full"></div>
+                   <div className="h-full w-1/3 bg-blue-600 rounded-full"></div>
+               </div>
+          </KPICard>
+
+          <KPICard 
+             title="Win Rate"
+             value="32%"
+             subValue="Trailing 30 days"
+             icon={TrendingUp}
+             color="text-emerald-600"
+             trend="+4.5%"
+             trendUp={true}
+          >
+             <div className="mt-3 h-8 w-full">
+                 <ResponsiveContainer width="100%" height="100%">
+                     <AreaChart data={[{v:20},{v:22},{v:28},{v:25},{v:30},{v:32}]}>
+                         <Area type="monotone" dataKey="v" stroke="#10b981" fill="#ecfdf5" strokeWidth={2} />
+                     </AreaChart>
+                 </ResponsiveContainer>
+             </div>
+          </KPICard>
+
+          <KPICard 
+             title="Active Pipeline"
+             value="$245k"
+             subValue="12 Open Deals"
+             icon={DollarSign}
+             color="text-fuchsia-600"
+             trend="+8%"
+             trendUp={true}
+          >
+             <div className="mt-3 flex gap-1 h-1.5 w-full">
+                  <div className="bg-primary-500 w-[40%] rounded-l-full"></div>
+                  <div className="bg-fuchsia-500 w-[30%]"></div>
+                  <div className="bg-emerald-500 w-[30%] rounded-r-full"></div>
+             </div>
+          </KPICard>
       </div>
 
-      {/* 2. Main Intelligence Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* LEFT COLUMN (8/12) */}
-        <div className="lg:col-span-8 space-y-8">
-            
-            {/* Pipeline Velocity & Health */}
-            <Card noPadding className="flex flex-col">
-                <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <div>
-                        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                           <Briefcase className="w-4 h-4 text-slate-500" /> Pipeline Snapshot
-                        </h2>
-                    </div>
-                    <span className="text-xs font-semibold text-slate-400">Total Value</span>
-                </div>
-                <div className="p-6">
-                    <div className="space-y-1">
-                        {dealsByStage.map((s) => (
-                            <PipelineBar 
-                                key={s.stage} 
-                                {...s} 
-                                totalValue={dealsByStage.reduce((sum, item) => sum + item.value, 0)} // Total including won/lost for scale
-                            />
-                        ))}
-                    </div>
-                </div>
-            </Card>
+      {/* --- MAIN DASHBOARD GRID --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[600px]">
+          
+          {/* Revenue Performance (2/3) */}
+          <div className="lg:col-span-2 h-[500px] lg:h-full">
+              <Card className="h-full flex flex-col" noPadding>
+                  <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100 shrink-0 bg-white sticky top-0 z-10">
+                      <div>
+                          <h3 className="text-lg font-bold text-slate-900">Revenue Performance</h3>
+                          <p className="text-xs text-slate-500">Actual vs Projected vs Goal</p>
+                      </div>
+                      <div className="flex gap-2">
+                          <button className="p-1.5 hover:bg-slate-50 rounded text-slate-400 hover:text-slate-600">
+                              <Filter className="h-4 w-4" />
+                          </button>
+                          <select className="bg-slate-50 border-none text-xs rounded-lg px-3 py-1.5 text-slate-600 focus:ring-2 focus:ring-primary-100 font-medium">
+                              <option>This Quarter</option>
+                              <option>Last Quarter</option>
+                              <option>YTD</option>
+                          </select>
+                      </div>
+                  </div>
+                  
+                  <div className="flex-1 w-full min-h-0 overflow-y-auto px-6 py-4 scrollbar-stable">
+                      {/* Chart Section */}
+                      <div className="h-[300px] w-full mb-8">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={FORECAST_DATA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} />
+                                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} tickFormatter={(val) => `$${val/1000}k`} />
+                                <Tooltip 
+                                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
+                                />
+                                <Legend iconType="circle" wrapperStyle={{paddingTop: '20px'}} />
+                                <Area type="monotone" dataKey="actual" name="Actual Revenue" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorActual)" strokeWidth={3} />
+                                <Area type="monotone" dataKey="projected" name="Projected" stroke="#3b82f6" fill="none" strokeDasharray="5 5" strokeWidth={2} />
+                                <Area type="monotone" dataKey="goal" name="Goal" stroke="#cbd5e1" fill="none" strokeWidth={2} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
 
-            {/* Momentum Feed */}
-            <Card noPadding>
-                <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
-                    <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-amber-500" /> Momentum Feed
-                    </h2>
-                    <Button variant="ghost" size="sm" className="text-xs">View All</Button>
-                </div>
-                <div className="divide-y divide-slate-50">
-                    {momentum.map((item) => (
-                        <div key={item.id} className="px-6 py-4 hover:bg-slate-50 transition-colors group cursor-pointer flex gap-4">
-                            <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center border shrink-0 ${
-                                item.type === 'Email' ? 'bg-blue-50 border-blue-100 text-blue-600' :
-                                item.type === 'Call' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
-                                'bg-slate-50 border-slate-200 text-slate-500'
-                            }`}>
-                                {item.type === 'Email' ? <Mail className="w-3.5 h-3.5" /> : 
-                                 item.type === 'Call' ? <Phone className="w-3.5 h-3.5" /> : 
-                                 <Activity className="w-3.5 h-3.5" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm text-slate-900 font-medium group-hover:text-primary-600 transition-colors">
-                                    {item.content}
-                                </p>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs text-slate-500 font-medium">{item.type}</span>
-                                    <span className="text-slate-300">•</span>
-                                    <span className="text-xs text-slate-400">{new Date(item.date).toLocaleDateString()}</span>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </Card>
+                      {/* Forecast Contributing Deals */}
+                      <div className="space-y-4">
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                              <TrendingUp className="h-3 w-3" /> Contributors to Forecast
+                          </h4>
+                          <div className="space-y-3">
+                              {MOCK_DEALS.slice(0, 5).map((deal, i) => (
+                                  <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-primary-200 transition-colors cursor-pointer">
+                                      <div className="flex items-center gap-3">
+                                          <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold ${deal.probability > 70 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                                              {deal.probability}%
+                                          </div>
+                                          <div>
+                                              <p className="text-sm font-bold text-slate-900">{deal.title}</p>
+                                              <p className="text-xs text-slate-500">Closing {new Date(deal.expectedCloseDate).toLocaleDateString()}</p>
+                                          </div>
+                                      </div>
+                                      <span className="text-sm font-bold text-slate-900">${deal.value.toLocaleString()}</span>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+              </Card>
+          </div>
 
-        </div>
+          {/* My Day Widget (1/3) */}
+          <div className="lg:col-span-1 h-[500px] lg:h-full">
+              <Card className="h-full flex flex-col" noPadding>
+                  <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center shrink-0 bg-white sticky top-0 z-10">
+                      <h3 className="font-bold text-slate-900">My Day</h3>
+                      <div className="flex bg-slate-100 rounded-lg p-0.5">
+                          <button 
+                            onClick={() => setActiveTab('tasks')}
+                            className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${activeTab === 'tasks' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                          >
+                              Tasks
+                          </button>
+                          <button 
+                            onClick={() => setActiveTab('meetings')}
+                            className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${activeTab === 'meetings' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                          >
+                              Meetings
+                          </button>
+                      </div>
+                  </div>
+                  
+                  {/* Quick Add */}
+                  <div className="px-4 py-3 border-b border-slate-50 bg-slate-50/50">
+                      <div className="relative">
+                          <input 
+                            type="text" 
+                            placeholder="Add a new task..." 
+                            value={quickTask}
+                            onChange={(e) => setQuickTask(e.target.value)}
+                            className="w-full pl-3 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-400"
+                          />
+                          <button className="absolute right-2 top-1/2 -translate-y-1/2 text-primary-600 hover:text-primary-700">
+                              <PlusCircle className="h-4 w-4" />
+                          </button>
+                      </div>
+                  </div>
 
-        {/* RIGHT COLUMN (4/12) */}
-        <div className="lg:col-span-4 space-y-6">
-            
-            {/* Attention Center (Risk) */}
-            <Card noPadding className="border-amber-200 shadow-[0_4px_20px_-4px_rgba(251,191,36,0.15)]">
-                 <div className="px-5 py-4 border-b border-amber-100 bg-amber-50 flex justify-between items-center">
-                    <h2 className="text-sm font-bold text-amber-900 flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4" /> Attention Required
-                    </h2>
-                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200">
-                        {risks.length}
-                    </span>
-                 </div>
-                 <div className="divide-y divide-amber-50">
-                    {risks.length > 0 ? risks.map(risk => (
-                        <div key={risk.id} className="p-4 hover:bg-amber-50/50 transition-colors group cursor-pointer">
-                            <div className="flex justify-between items-start mb-1">
-                                <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
-                                    risk.type === 'Risk' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
-                                }`}>
-                                    {risk.type}
-                                </span>
-                                <span className="text-xs text-slate-400 font-medium">{risk.daysInactive}d inactive</span>
-                            </div>
-                            <h4 className="text-sm font-bold text-slate-900 mb-0.5 group-hover:text-primary-700 transition-colors truncate">
-                                {risk.title}
-                            </h4>
-                            <p className="text-xs text-slate-500">
-                                Value: ${risk.value.toLocaleString()} • Prob: {risk.probability}%
-                            </p>
-                            <div className="mt-3 flex items-center text-xs font-semibold text-primary-600 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-1 group-hover:translate-y-0 duration-200">
-                                View Deal <ArrowUpRight className="ml-1 w-3 h-3" />
-                            </div>
-                        </div>
-                    )) : (
-                        <div className="p-8 text-center text-slate-400 text-sm">
-                            <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-400" />
-                            All deals are healthy!
-                        </div>
-                    )}
-                 </div>
-            </Card>
+                  <div className="flex-1 overflow-y-auto p-2 scrollbar-stable">
+                      {activeTab === 'tasks' ? (
+                          <div className="space-y-2">
+                              {MOCK_TASKS.map(task => (
+                                  <div key={task.id} className="p-3 bg-white hover:bg-slate-50 rounded-lg group transition-all border border-slate-100 hover:border-primary-100 hover:shadow-sm">
+                                      <div className="flex items-start gap-3 mb-2">
+                                          <div className={`mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 ${task.priority === 'High' ? 'border-rose-300 bg-rose-50 text-rose-600' : 'border-slate-300 text-slate-400'}`}>
+                                              {task.priority === 'High' && <AlertTriangle className="h-2 w-2" />}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                              <p className="text-sm font-medium text-slate-900 truncate">{task.title}</p>
+                                              <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                                                  <Calendar className="h-3 w-3" /> {new Date(task.dueDate).toLocaleDateString()}
+                                              </p>
+                                          </div>
+                                      </div>
+                                      
+                                      {/* Quick Actions for Task */}
+                                      <div className="flex gap-2 pl-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button className="text-[10px] font-medium text-slate-500 hover:text-primary-600 flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border border-slate-200 hover:border-primary-200">
+                                              <CheckSquare className="h-3 w-3" /> Complete
+                                          </button>
+                                          <button className="text-[10px] font-medium text-slate-500 hover:text-primary-600 flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border border-slate-200 hover:border-primary-200">
+                                              <Clock className="h-3 w-3" /> Reschedule
+                                          </button>
+                                      </div>
+                                  </div>
+                              ))}
+                              {/* Duplicates for scrolling demo */}
+                              {MOCK_TASKS.map(task => (
+                                  <div key={`${task.id}-dup`} className="p-3 bg-white hover:bg-slate-50 rounded-lg group transition-all border border-slate-100 hover:border-primary-100 hover:shadow-sm">
+                                      <div className="flex items-start gap-3 mb-2">
+                                          <div className={`mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 ${task.priority === 'High' ? 'border-rose-300 bg-rose-50 text-rose-600' : 'border-slate-300 text-slate-400'}`}>
+                                              {task.priority === 'High' && <AlertTriangle className="h-2 w-2" />}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                              <p className="text-sm font-medium text-slate-900 truncate">{task.title}</p>
+                                              <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                                                  <Calendar className="h-3 w-3" /> {new Date(task.dueDate).toLocaleDateString()}
+                                              </p>
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      ) : (
+                          <div className="space-y-2">
+                              {[1, 2, 3, 4, 5, 6].map(i => (
+                                  <div key={i} className="flex items-start gap-3 p-3 bg-white hover:bg-slate-50 rounded-lg group transition-colors border border-slate-100 hover:border-primary-100">
+                                      <div className="flex flex-col items-center bg-blue-50 text-blue-700 rounded p-1.5 min-w-[3rem]">
+                                          <span className="text-[10px] font-bold uppercase">Today</span>
+                                          <span className="text-sm font-bold">2:00</span>
+                                      </div>
+                                      <div className="flex-1">
+                                          <p className="text-sm font-medium text-slate-900">Demo with Acme Corp</p>
+                                          <p className="text-xs text-slate-500 mt-0.5">Google Meet • 45 min</p>
+                                          
+                                          <div className="flex gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <button className="p-1.5 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100" title="Join Call">
+                                                  <Phone className="h-3 w-3" />
+                                              </button>
+                                              <button className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100" title="Email Participants">
+                                                  <Mail className="h-3 w-3" />
+                                              </button>
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
+                  </div>
+              </Card>
+          </div>
 
-            {/* Tasks Preview (Limited) */}
-            <Card noPadding>
-                <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-                     <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-slate-500" /> Priorities
-                    </h2>
-                    <button className="text-xs text-primary-600 font-medium hover:text-primary-700 transition-colors">See all</button>
-                </div>
-                <div className="divide-y divide-slate-50">
-                    {MOCK_TASKS.slice(0, 4).map(task => (
-                        <div key={task.id} className="p-4 hover:bg-slate-50 transition-colors flex items-start gap-3 group">
-                             <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                                 task.priority === 'High' ? 'border-rose-300 bg-rose-50' : 'border-slate-300'
-                             }`}></div>
-                             <div className="min-w-0">
-                                <p className={`text-sm font-medium truncate ${task.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-                                    {task.title}
-                                </p>
-                                <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                                   <Clock className="w-3 h-3" /> {new Date(task.dueDate).toLocaleDateString()}
-                                </p>
-                             </div>
-                        </div>
-                    ))}
-                </div>
-            </Card>
-
-            {/* Smart Insights (Advisory) */}
-            <div className="bg-indigo-50 rounded-xl p-5 border border-indigo-100">
-                 <h3 className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <Activity className="w-3.5 h-3.5" /> Insights
-                 </h3>
-                 <ul className="space-y-3">
-                     <li className="text-xs text-indigo-800 leading-relaxed">
-                         <strong className="block font-bold mb-0.5">Bottleneck detected</strong>
-                         Deals are spending <span className="font-bold">20% longer</span> in "Qualify" stage than last month.
-                     </li>
-                     <li className="text-xs text-indigo-800 leading-relaxed pt-2 border-t border-indigo-200/50">
-                         <strong className="block font-bold mb-0.5">Win Rate</strong>
-                         Your win rate is highest with clients in the <span className="font-bold">Tech</span> sector (65%).
-                     </li>
-                 </ul>
-            </div>
-
-        </div>
       </div>
+
+      {/* --- BOTTOM ROW: Insights & Tables --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Recent Opportunities (2/3) */}
+          <Card noPadding className="flex flex-col lg:col-span-2">
+              <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                      <h3 className="font-bold text-slate-900">Recent Opportunities</h3>
+                      <div className="flex bg-slate-100 p-0.5 rounded-lg">
+                          <button 
+                            onClick={() => setDealFilter('all')}
+                            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${dealFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                          >
+                              All
+                          </button>
+                          <button 
+                            onClick={() => setDealFilter('closing')}
+                            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${dealFilter === 'closing' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                          >
+                              Closing Soon
+                          </button>
+                          <button 
+                            onClick={() => setDealFilter('risk')}
+                            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${dealFilter === 'risk' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}
+                          >
+                              At Risk
+                          </button>
+                      </div>
+                  </div>
+                  <Button variant="ghost" size="sm" icon={ArrowRight}>View All</Button>
+              </div>
+              <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-500">
+                          <tr>
+                              <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider">Deal Name</th>
+                              <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider">Stage</th>
+                              <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider">Value</th>
+                              <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-right">Action</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                          {displayedDeals.length > 0 ? displayedDeals.map(deal => (
+                              <tr key={deal.id} className="hover:bg-slate-50 transition-colors group">
+                                  <td className="px-5 py-3">
+                                      <div className="font-bold text-slate-900">{deal.title}</div>
+                                      <div className="text-xs text-slate-500">Acme Corp</div>
+                                  </td>
+                                  <td className="px-5 py-3">
+                                      <Badge variant="neutral" className="text-[10px]">{deal.stage}</Badge>
+                                  </td>
+                                  <td className="px-5 py-3 font-medium text-slate-900">
+                                      ${deal.value.toLocaleString()}
+                                  </td>
+                                  <td className="px-5 py-3 text-right">
+                                      <button 
+                                        onClick={() => navigate(`/deals/${deal.id}`)}
+                                        className="text-slate-400 hover:text-primary-600 transition-colors"
+                                      >
+                                          <ChevronRight className="h-5 w-5" />
+                                      </button>
+                                  </td>
+                              </tr>
+                          )) : (
+                              <tr>
+                                  <td colSpan={4} className="px-5 py-8 text-center text-slate-500 text-sm italic">
+                                      No deals match this filter.
+                                  </td>
+                              </tr>
+                          )}
+                      </tbody>
+                  </table>
+              </div>
+          </Card>
+
+          {/* Marketing & Funnel Insights (1/3) */}
+          <div className="lg:col-span-1 space-y-6">
+              {/* Activity Volume (New) */}
+              <Card className="flex flex-col">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                          <Activity className="h-4 w-4 text-slate-400" /> Activity Volume
+                      </h3>
+                  </div>
+                  <div className="h-[180px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={ACTIVITY_VOLUME_DATA} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                              <Tooltip 
+                                cursor={{fill: 'transparent'}}
+                                contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', fontSize: '12px'}}
+                              />
+                              <Legend iconType="circle" wrapperStyle={{paddingTop: '10px', fontSize: '10px'}} />
+                              <Bar dataKey="calls" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={12} />
+                              <Bar dataKey="emails" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} barSize={12} />
+                              <Bar dataKey="meetings" stackId="a" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={12} />
+                          </BarChart>
+                      </ResponsiveContainer>
+                  </div>
+              </Card>
+
+              {/* Conversion Funnel */}
+              <Card className="flex flex-col">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-slate-900">Conversion Funnel</h3>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height={200}>
+                          <BarChart layout="vertical" data={FUNNEL_DATA} margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
+                              <XAxis type="number" hide />
+                              <YAxis dataKey="name" type="category" width={70} tick={{fontSize: 10, fill: '#64748b', fontWeight: 600}} axisLine={false} tickLine={false} />
+                              <Tooltip cursor={{fill: 'transparent'}} />
+                              <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                                  {FUNNEL_DATA.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={FUNNEL_COLORS[index]} />
+                                  ))}
+                              </Bar>
+                          </BarChart>
+                      </ResponsiveContainer>
+                  </div>
+              </Card>
+              
+              {/* Lead Sources (New) */}
+              <Card className="flex flex-col">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-slate-900">Lead Sources</h3>
+                  </div>
+                  <div className="flex items-center">
+                      <div className="h-[160px] w-1/2">
+                          <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                  <Pie
+                                      data={SOURCE_DATA}
+                                      innerRadius={40}
+                                      outerRadius={60}
+                                      paddingAngle={5}
+                                      dataKey="value"
+                                  >
+                                      {SOURCE_DATA.map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={entry.color} />
+                                      ))}
+                                  </Pie>
+                                  <Tooltip />
+                              </PieChart>
+                          </ResponsiveContainer>
+                      </div>
+                      <div className="w-1/2 space-y-2">
+                          {SOURCE_DATA.slice(0, 3).map((entry) => (
+                              <div key={entry.name} className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-1.5">
+                                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
+                                      <span className="text-slate-600">{entry.name}</span>
+                                  </div>
+                                  <span className="font-bold text-slate-900">{entry.value}%</span>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              </Card>
+          </div>
+
+      </div>
+
     </div>
   );
 };
+
+const KPICard = ({ title, value, subValue, icon: Icon, color, trend, trendUp, children }: any) => (
+    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex justify-between items-start mb-2">
+            <div className={`p-2 rounded-lg ${color.replace('text-', 'bg-').replace('600', '50')} ${color}`}>
+                <Icon className="h-5 w-5" />
+            </div>
+            <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${trendUp ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                {trendUp ? <ArrowUpRight className="h-3 w-3" /> : <TrendingUp className="h-3 w-3 rotate-180" />}
+                {trend}
+            </div>
+        </div>
+        <div>
+            <h3 className="text-2xl font-bold text-slate-900">{value}</h3>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">{title}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{subValue}</p>
+        </div>
+        {children}
+    </div>
+);
 
 export default Dashboard;

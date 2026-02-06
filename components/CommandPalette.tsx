@@ -69,8 +69,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
                     <button onClick={() => handleSelect('/pipeline')} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg mx-1">
                         <DollarSign className="h-4 w-4 text-slate-400" /> Go to Pipeline
                     </button>
-                    <button onClick={() => handleSelect('/clients')} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg mx-1">
-                        <User className="h-4 w-4 text-slate-400" /> Go to Clients
+                    <button onClick={() => handleSelect('/contacts')} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg mx-1">
+                        <User className="h-4 w-4 text-slate-400" /> Go to Contacts
                     </button>
                     <button onClick={() => handleSelect('/tasks')} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg mx-1">
                         <FileText className="h-4 w-4 text-slate-400" /> Go to Tasks
@@ -80,11 +80,11 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
 
             {filteredClients.length > 0 && query !== '' && (
                 <div className="px-2 mb-2">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-2">Clients</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-2">Contacts</div>
                     {filteredClients.map(c => (
                         <button 
                             key={c.id} 
-                            onClick={() => handleSelect(`/clients/${c.id}`)}
+                            onClick={() => handleSelect(`/contacts/${c.id}`)}
                             className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg mx-1 group"
                         >
                             <span className="flex items-center gap-3">

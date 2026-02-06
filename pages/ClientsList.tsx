@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Badge from '../components/Badge';
+import { useToast } from '../components/Toast';
 import { Search, Plus, Phone, Mail, ChevronRight, Filter, MoreHorizontal, Calendar } from 'lucide-react';
 
 const ClientsList: React.FC = () => {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredClients = MOCK_CLIENTS.filter(c => 
@@ -23,12 +25,12 @@ const ClientsList: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Clients</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Contacts</h1>
           <p className="text-sm font-medium text-slate-500 mt-1">
             Manage relationships and track interaction health.
           </p>
         </div>
-        <Button icon={Plus}>Add Client</Button>
+        <Button icon={Plus}>Add Contact</Button>
       </div>
 
       {/* Toolbar */}
@@ -37,7 +39,7 @@ const ClientsList: React.FC = () => {
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
              <input 
                  type="text" 
-                 placeholder="Search clients or companies..." 
+                 placeholder="Search contacts or companies..." 
                  value={searchTerm}
                  onChange={(e) => setSearchTerm(e.target.value)}
                  className="w-full pl-10 pr-4 py-2 text-sm border-none focus:ring-0 text-slate-900 placeholder:text-slate-400"
@@ -55,11 +57,11 @@ const ClientsList: React.FC = () => {
             <table className="w-full text-left text-sm">
                 <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/50">
-                        <th className="px-6 py-4 font-semibold text-slate-500 uppercase text-xs tracking-wider">Client / Company</th>
-                        <th className="px-6 py-4 font-semibold text-slate-500 uppercase text-xs tracking-wider">Status</th>
-                        <th className="px-6 py-4 font-semibold text-slate-500 uppercase text-xs tracking-wider">Engagement</th>
-                        <th className="px-6 py-4 font-semibold text-slate-500 uppercase text-xs tracking-wider">Next Action</th>
-                        <th className="px-6 py-4 text-right font-semibold text-slate-500 uppercase text-xs tracking-wider">Actions</th>
+                        <th className="px-6 py-4 font-semibold text-slate-500 uppercase text-xs tracking-wider w-full">Client / Company</th>
+                        <th className="px-6 py-4 font-semibold text-slate-500 uppercase text-xs tracking-wider whitespace-nowrap">Status</th>
+                        <th className="px-6 py-4 font-semibold text-slate-500 uppercase text-xs tracking-wider whitespace-nowrap">Engagement</th>
+                        <th className="pl-6 pr-2 py-4 font-semibold text-slate-500 uppercase text-xs tracking-wider whitespace-nowrap">Next Action</th>
+                        <th className="pl-2 pr-6 py-4 font-semibold text-slate-500 uppercase text-xs tracking-wider w-[1%] whitespace-nowrap">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -70,7 +72,7 @@ const ClientsList: React.FC = () => {
                         return (
                             <tr 
                                 key={client.id} 
-                                onClick={() => navigate(`/clients/${client.id}`)}
+                                onClick={() => navigate(`/contacts/${client.id}`)}
                                 className="group hover:bg-slate-50 transition-colors cursor-pointer"
                             >
                                 <td className="px-6 py-4">
@@ -82,16 +84,16 @@ const ClientsList: React.FC = () => {
                                         </div>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 whitespace-nowrap">
                                     <Badge variant={client.status === 'Active' ? 'success' : 'neutral'}>
                                         {client.status}
                                     </Badge>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex flex-col gap-1">
                                         <span className="text-slate-700 font-medium flex items-center gap-1.5">
                                             {dealsCount > 0 ? (
-                                                <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] font-bold">{dealsCount} DEAL{dealsCount !== 1 && 'S'}</span>
+                                                <span className="text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded text-[10px] font-bold border border-primary-100">{dealsCount} DEAL{dealsCount !== 1 && 'S'}</span>
                                             ) : (
                                                 <span className="text-slate-400 text-[10px]">NO DEALS</span>
                                             )}
@@ -101,7 +103,7 @@ const ClientsList: React.FC = () => {
                                         </span>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="pl-6 pr-2 py-4">
                                     {client.nextAction ? (
                                         <div className="flex items-start gap-2 max-w-[200px]">
                                             <Calendar className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
@@ -114,11 +116,35 @@ const ClientsList: React.FC = () => {
                                         <span className="text-slate-400 text-xs italic">None scheduled</span>
                                     )}
                                 </td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                                        <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded border border-transparent hover:border-slate-200 transition-all"><Phone className="h-4 w-4" /></button>
-                                        <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded border border-transparent hover:border-slate-200 transition-all"><Mail className="h-4 w-4" /></button>
-                                        <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded border border-transparent hover:border-slate-200 transition-all"><MoreHorizontal className="h-4 w-4" /></button>
+                                <td className="pl-2 pr-6 py-4 whitespace-nowrap">
+                                    <div className="flex items-center justify-start gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <button 
+                                            onClick={() => {
+                                                addToast(`Calling ${client.name}...`, 'success');
+                                                window.location.href = `tel:${client.phone}`;
+                                            }}
+                                            className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded border border-transparent transition-all"
+                                            title="Call"
+                                        >
+                                            <Phone className="h-4 w-4" />
+                                        </button>
+                                        <button 
+                                            onClick={() => {
+                                                addToast(`Drafting email to ${client.name}...`, 'success');
+                                                window.location.href = `mailto:${client.email}`;
+                                            }}
+                                            className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded border border-transparent transition-all"
+                                            title="Email"
+                                        >
+                                            <Mail className="h-4 w-4" />
+                                        </button>
+                                        <button 
+                                            onClick={() => addToast('More options menu', 'info')}
+                                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded border border-transparent transition-all"
+                                            title="More"
+                                        >
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -129,7 +155,7 @@ const ClientsList: React.FC = () => {
         </div>
         {filteredClients.length === 0 && (
             <div className="p-12 text-center text-slate-400">
-                <p>No clients found matching "{searchTerm}"</p>
+                <p>No contacts found matching "{searchTerm}"</p>
                 <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')} className="mt-2">Clear Search</Button>
             </div>
         )}

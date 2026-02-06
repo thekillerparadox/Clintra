@@ -16,7 +16,7 @@ const TaskGroup: React.FC<{
     if (tasks.length === 0) return null;
 
     return (
-        <div className="mb-8">
+        <div className="mb-8 animate-enter">
             <h3 className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 pl-1">
                 <Icon className={`h-4 w-4 ${iconColor}`} /> {title} <span className="text-slate-300 ml-1">({tasks.length})</span>
             </h3>
@@ -50,7 +50,7 @@ const TaskGroup: React.FC<{
                                     {new Date(task.dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                                 </span>
                                 {task.relatedDealId && (
-                                    <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                    <span className="text-xs text-primary-600 bg-primary-50 px-2 py-0.5 rounded border border-primary-100">
                                         Deal Related
                                     </span>
                                 )}
@@ -131,7 +131,7 @@ const Tasks: React.FC = () => {
                 title="Due Today" 
                 tasks={today} 
                 icon={Clock} 
-                iconColor="text-indigo-500" 
+                iconColor="text-primary-500" 
                 onToggle={toggleTask} 
             />
             
@@ -160,9 +160,9 @@ const Tasks: React.FC = () => {
                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Completed ({completed.length})</h3>
                  <div className="space-y-2">
                      {completed.map(t => (
-                         <div key={t.id} className="flex items-center gap-3 p-2">
+                         <div key={t.id} className="flex items-center gap-3 p-2 group">
                              <input type="checkbox" checked readOnly className="h-4 w-4 rounded border-slate-300 text-slate-400" />
-                             <span className="text-sm text-slate-400 line-through">{t.title}</span>
+                             <span className="text-sm text-slate-400 line-through group-hover:text-slate-500 transition-colors">{t.title}</span>
                          </div>
                      ))}
                  </div>

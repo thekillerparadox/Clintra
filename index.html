@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -15,27 +15,27 @@
                 900: '#0F172A', // Spec Text Primary
               },
               primary: {
-                50: '#eff6ff',
-                100: '#dbeafe',
-                200: '#bfdbfe',
-                300: '#93c5fd',
-                400: '#60a5fa',
-                500: '#3b82f6',
-                600: '#2563eb', // Spec Accent
-                700: '#1d4ed8',
-                800: '#1e40af',
-                900: '#1e3a8a',
+                50: '#f5f3ff',
+                100: '#ede9fe',
+                200: '#ddd6fe',
+                300: '#c4b5fd',
+                400: '#a78bfa',
+                500: '#8b5cf6',
+                600: '#7c3aed', // New Brand Purple
+                700: '#6d28d9',
+                800: '#5b21b6',
+                900: '#4c1d95',
               },
               success: {
-                500: '#16A34A', // Spec Success
+                500: '#10B981', 
                 50: '#ecfdf5',
               },
               warning: {
-                500: '#F59E0B', // Spec Warning
+                500: '#F59E0B', 
                 50: '#fffbeb',
               },
               danger: {
-                500: '#DC2626', // Spec Danger
+                500: '#EF4444', 
                 50: '#fef2f2',
               }
             },
@@ -53,6 +53,7 @@
             animation: {
               'enter': 'enter 0.3s cubic-bezier(.2,.9,.25,1)',
               'pulse-soft': 'pulse-soft 2s infinite',
+              'blob': 'blob 7s infinite',
             },
             keyframes: {
               enter: {
@@ -62,6 +63,12 @@
               'pulse-soft': {
                 '0%, 100%': { opacity: '1' },
                 '50%': { opacity: '0.7' },
+              },
+              blob: {
+                "0%": { transform: "translate(0px, 0px) scale(1)" },
+                "33%": { transform: "translate(30px, -50px) scale(1.1)" },
+                "66%": { transform: "translate(-20px, 20px) scale(0.9)" },
+                "100%": { transform: "translate(0px, 0px) scale(1)" }
               }
             }
           }
@@ -74,19 +81,23 @@
       }
       /* Refined Scrollbar */
       ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
       }
       ::-webkit-scrollbar-track {
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
         background: #cbd5e1;
-        border-radius: 4px;
-        border: 2px solid #F8FAFC; 
+        border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
+      }
+      
+      /* Ensure scrollbars don't mess up layout spacing too much */
+      .scrollbar-stable {
+        scrollbar-gutter: stable;
       }
     </style>
   <script type="importmap">
@@ -96,7 +107,7 @@
     "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "recharts": "https://esm.sh/recharts@^2.12.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
     "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0"
   }

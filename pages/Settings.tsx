@@ -78,7 +78,7 @@ const Settings: React.FC = () => {
                         <h2 className="text-lg font-bold text-slate-900 mb-4">Personal Information</h2>
                         <div className="flex items-start gap-6">
                             <div className="relative group cursor-pointer">
-                                <img src="https://ui-avatars.com/api/?name=John+Doe&background=0D8ABC&color=fff" className="h-20 w-20 rounded-full border-4 border-slate-50 group-hover:opacity-90 transition-opacity" alt="Profile" />
+                                <img src="https://ui-avatars.com/api/?name=John+Doe&background=7c3aed&color=fff" className="h-20 w-20 rounded-full border-4 border-slate-50 group-hover:opacity-90 transition-opacity" alt="Profile" />
                                 <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                     <span className="text-xs text-white font-medium">Edit</span>
                                 </div>
@@ -156,7 +156,7 @@ const Settings: React.FC = () => {
                                 <tbody className="divide-y divide-slate-100">
                                     <tr>
                                         <td className="px-4 py-3 flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">JD</div>
+                                            <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xs">JD</div>
                                             <span className="font-medium text-slate-900">John Doe (You)</span>
                                         </td>
                                         <td className="px-4 py-3">
@@ -169,7 +169,7 @@ const Settings: React.FC = () => {
                                     </tr>
                                     <tr>
                                         <td className="px-4 py-3 flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-xs">SA</div>
+                                            <div className="h-8 w-8 rounded-full bg-fuchsia-100 flex items-center justify-center text-fuchsia-700 font-bold text-xs">SA</div>
                                             <span className="font-medium text-slate-900">Sarah Admin</span>
                                         </td>
                                         <td className="px-4 py-3">
